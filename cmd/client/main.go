@@ -26,7 +26,7 @@ func main() {
 
 	username, err := gamelogic.ClientWelcome()
 	if err != nil {
-		log.Println("error getting user name: %v", err)
+		log.Printf("error getting user name: %v", err)
 	}
 
 	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, username)
