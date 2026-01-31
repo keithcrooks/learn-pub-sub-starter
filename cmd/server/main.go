@@ -47,7 +47,7 @@ func main() {
 			}
 			fmt.Println("Pause message sent!")
 		case "resume":
-			log.Panicln("Sending a resume message...")
+			log.Println("Sending a resume message...")
 			val := routing.PlayingState{IsPaused: false}
 			if err := pubsub.PublishJSON(ch, routing.ExchangePerilDirect, routing.PauseKey, val); err != nil {
 				log.Printf("could not send resume message: %v", err)
@@ -57,7 +57,7 @@ func main() {
 			fmt.Println("Closing Peril server...")
 			return
 		default:
-			fmt.Printf("Done understand command '%s'\n", cmd)
+			fmt.Printf("Don't understand command '%s'\n", cmd)
 		}
 	}
 }

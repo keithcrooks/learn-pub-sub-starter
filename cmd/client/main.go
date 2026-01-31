@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -40,9 +38,41 @@ func main() {
 		log.Fatalf("could not declare and bind: %v", err)
 	}
 
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	<-signalChan
+	gs := gamelogic.NewGameState(username)
 
-	fmt.Println("Closing Peril client...")
+	for {
+		words := gamelogic.GetInput()
+
+		if len(words) == 0 {
+			continue
+		}
+
+		cmd := words[0]
+		switch cmd {
+		case "spawn":
+			if err := gs.CommandSpawn(words); err != nil {
+				fmt.Printf("could not spawn: %v", err)
+				continue
+			}
+		case "move":
+			_, err := gs.CommandMove(words)
+			if err != nil {
+				fmt.Printf("could not move: %v", err)
+				continue
+			}
+
+			fmt.Println("move successful")
+		case "status":
+			gs.CommandStatus()
+		case "help":
+			gamelogic.PrintClientHelp()
+		case "spam":
+			fmt.Println("Spamming not allowed yet!")
+		case "quit":
+			fmt.Println("Closing Peril server...")
+			return
+		default:
+			fmt.Printf("Don't understand command '%s'\n", cmd)
+		}
+	}
 }
