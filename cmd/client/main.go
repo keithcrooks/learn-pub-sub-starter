@@ -12,34 +12,18 @@ import (
 
 func main() {
 	fmt.Println("Starting Peril client...")
-	const url = "amqp://guest:guest@localhost:5672/"
+	conn := connectToExchange()
 
-	conn, err := amqp.Dial(url)
-	if err != nil {
-		log.Fatalf("could not connect: %v", err)
-	}
-	defer conn.Close()
+	username := promptUserForName()
 
-	fmt.Println("Connection was successful.")
-
-	username, err := gamelogic.ClientWelcome()
-	if err != nil {
-		log.Printf("error getting user name: %v", err)
-	}
-
-	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, username)
-	if _, _, err := pubsub.DeclareAndBind(
-		conn,
-		routing.ExchangePerilDirect,
-		queueName,
-		routing.PauseKey,
-		pubsub.QueueTransient,
-	); err != nil {
-		log.Fatalf("could not declare and bind: %v", err)
-	}
+	createUserSubscription(username, conn)
 
 	gs := gamelogic.NewGameState(username)
 
+	executeCommandLoop(gs)
+}
+
+func executeCommandLoop(gs *gamelogic.GameState) {
 	for {
 		words := gamelogic.GetInput()
 
@@ -75,4 +59,38 @@ func main() {
 			fmt.Printf("Don't understand command '%s'\n", cmd)
 		}
 	}
+}
+
+func connectToExchange() *amqp.Connection {
+	const url = "amqp://guest:guest@localhost:5672/"
+
+	conn, err := amqp.Dial(url)
+	if err != nil {
+		log.Fatalf("could not connect: %v", err)
+	}
+	defer conn.Close()
+
+	fmt.Println("Connection was successful.")
+	return conn
+}
+
+func createUserSubscription(username string, conn *amqp.Connection) {
+	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, username)
+	if _, _, err := pubsub.DeclareAndBind(
+		conn,
+		routing.ExchangePerilDirect,
+		queueName,
+		routing.PauseKey,
+		pubsub.QueueTransient,
+	); err != nil {
+		log.Fatalf("could not declare and bind: %v", err)
+	}
+}
+
+func promptUserForName() string {
+	username, err := gamelogic.ClientWelcome()
+	if err != nil {
+		log.Printf("error getting user name: %v", err)
+	}
+	return username
 }
