@@ -13,12 +13,23 @@ import (
 func main() {
 	fmt.Println("Starting Peril client...")
 	conn := connectToExchange()
+	defer conn.Close()
 
 	username := promptUserForName()
 
-	createUserSubscription(username, conn)
-
 	gs := gamelogic.NewGameState(username)
+
+	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, username)
+	if err := pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilDirect,
+		queueName,
+		routing.PauseKey,
+		pubsub.QueueTransient,
+		handlerPause(gs),
+	); err != nil {
+		log.Fatalf("unable to subscribe: %v", err)
+	}
 
 	executeCommandLoop(gs)
 }
@@ -68,23 +79,9 @@ func connectToExchange() *amqp.Connection {
 	if err != nil {
 		log.Fatalf("could not connect: %v", err)
 	}
-	defer conn.Close()
 
 	fmt.Println("Connection was successful.")
 	return conn
-}
-
-func createUserSubscription(username string, conn *amqp.Connection) {
-	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, username)
-	if _, _, err := pubsub.DeclareAndBind(
-		conn,
-		routing.ExchangePerilDirect,
-		queueName,
-		routing.PauseKey,
-		pubsub.QueueTransient,
-	); err != nil {
-		log.Fatalf("could not declare and bind: %v", err)
-	}
 }
 
 func promptUserForName() string {

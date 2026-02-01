@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -61,4 +62,41 @@ func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	}
 
 	return ch.PublishWithContext(context.Background(), exchange, key, false, false, msg)
+}
+
+func SubscribeJSON[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
+	handler func(T),
+) error {
+	ch, q, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		return err
+	}
+
+	deliveries, err := ch.Consume(q.Name, "", false, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for msg := range deliveries {
+			var body T
+			if err := json.Unmarshal(msg.Body, &body); err != nil {
+				log.Printf("could not unmarshal message body: %v", err)
+				continue
+			}
+
+			handler(body)
+
+			if err := msg.Ack(false); err != nil {
+				log.Printf("could not acknowledge message: %v", err)
+			}
+		}
+	}()
+
+	return nil
 }
