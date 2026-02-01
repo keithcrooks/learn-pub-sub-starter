@@ -15,15 +15,20 @@ func main() {
 
 	const url = "amqp://guest:guest@localhost:5672/"
 
-	con, err := amqp.Dial(url)
+	conn, err := amqp.Dial(url)
 	if err != nil {
 		log.Fatalf("could not connect: %v", err)
 	}
-	defer con.Close()
+	defer conn.Close()
 
 	fmt.Println("Connection was successful.")
 
-	ch, err := con.Channel()
+	_, _, err = pubsub.DeclareAndBind(conn, routing.ExchangePerilTopic, "game_logs", "game_logs.*", pubsub.QueueDurable)
+	if err != nil {
+		log.Fatalf("could not declare and bind: %v", err)
+	}
+
+	ch, err := conn.Channel()
 	if err != nil {
 		log.Fatalf("could not create channel: %v", err)
 	}
