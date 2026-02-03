@@ -16,6 +16,14 @@ const (
 	QueueTransient
 )
 
+type AckType int
+
+const (
+	Ack AckType = iota
+	NackRequeue
+	NackDiscard
+)
+
 func DeclareAndBind(
 	conn *amqp.Connection,
 	exchange,
@@ -70,7 +78,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
-	handler func(T),
+	handler func(T) AckType,
 ) error {
 	ch, q, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
@@ -90,10 +98,24 @@ func SubscribeJSON[T any](
 				continue
 			}
 
-			handler(body)
+			ackType := handler(body)
 
-			if err := msg.Ack(false); err != nil {
-				log.Printf("could not acknowledge message: %v", err)
+			switch ackType {
+			case Ack:
+				if err := msg.Ack(false); err != nil {
+					log.Printf("could not acknowledge message: %v", err)
+				}
+				log.Println("message acknowledged")
+			case NackRequeue:
+				if err := msg.Nack(false, true); err != nil {
+					log.Printf("could not requeue message: %v", err)
+				}
+				log.Println("message requeued")
+			case NackDiscard:
+				if err := msg.Nack(false, false); err != nil {
+					log.Printf("could not discard message: %v", err)
+				}
+				log.Println("message discarded")
 			}
 		}
 	}()
