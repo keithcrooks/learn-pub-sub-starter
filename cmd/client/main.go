@@ -19,13 +19,14 @@ func main() {
 
 	gs := gamelogic.NewGameState(username)
 
-	subscribeToPause(username, conn, gs)
-	subscribeToArmyMoves(username, conn, gs)
-
 	ch, err := conn.Channel()
 	if err != nil {
 		log.Fatalf("could not create channel: %v", err)
 	}
+
+	subscribeToPause(username, conn, gs)
+	subscribeToMoves(username, conn, gs, ch)
+	subscribeToRecognitionOfWar(conn, gs)
 
 	executeCommandLoop(gs, ch)
 }
@@ -44,7 +45,7 @@ func subscribeToPause(username string, conn *amqp.Connection, gs *gamelogic.Game
 	}
 }
 
-func subscribeToArmyMoves(username string, conn *amqp.Connection, gs *gamelogic.GameState) {
+func subscribeToMoves(username string, conn *amqp.Connection, gs *gamelogic.GameState, ch *amqp.Channel) {
 	key := fmt.Sprintf("%s.*", routing.ArmyMovesPrefix)
 	queueName := fmt.Sprintf("%s.%s", routing.ArmyMovesPrefix, username)
 	if err := pubsub.SubscribeJSON(
@@ -53,7 +54,21 @@ func subscribeToArmyMoves(username string, conn *amqp.Connection, gs *gamelogic.
 		queueName,
 		key,
 		pubsub.QueueTransient,
-		handlerMove(gs),
+		handlerMove(gs, ch),
+	); err != nil {
+		log.Fatalf("unable to subscribe: %v", err)
+	}
+}
+
+func subscribeToRecognitionOfWar(conn *amqp.Connection, gs *gamelogic.GameState) {
+	key := fmt.Sprintf("%s.*", routing.WarRecognitionsPrefix)
+	if err := pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		"war",
+		key,
+		pubsub.QueueDurable,
+		handlerWar(gs),
 	); err != nil {
 		log.Fatalf("unable to subscribe: %v", err)
 	}
