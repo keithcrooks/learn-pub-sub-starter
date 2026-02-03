@@ -53,7 +53,7 @@ func subscribeToArmyMoves(username string, conn *amqp.Connection, gs *gamelogic.
 		queueName,
 		key,
 		pubsub.QueueTransient,
-		handlerArmyMoves(gs),
+		handlerMove(gs),
 	); err != nil {
 		log.Fatalf("unable to subscribe: %v", err)
 	}
