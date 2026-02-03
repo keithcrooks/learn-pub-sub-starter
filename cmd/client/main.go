@@ -26,7 +26,7 @@ func main() {
 
 	subscribeToPause(username, conn, gs)
 	subscribeToMoves(username, conn, gs, ch)
-	subscribeToRecognitionOfWar(conn, gs)
+	subscribeToRecognitionOfWar(conn, gs, ch)
 
 	executeCommandLoop(gs, ch)
 }
@@ -60,7 +60,7 @@ func subscribeToMoves(username string, conn *amqp.Connection, gs *gamelogic.Game
 	}
 }
 
-func subscribeToRecognitionOfWar(conn *amqp.Connection, gs *gamelogic.GameState) {
+func subscribeToRecognitionOfWar(conn *amqp.Connection, gs *gamelogic.GameState, ch *amqp.Channel) {
 	key := fmt.Sprintf("%s.*", routing.WarRecognitionsPrefix)
 	if err := pubsub.SubscribeJSON(
 		conn,
@@ -68,7 +68,7 @@ func subscribeToRecognitionOfWar(conn *amqp.Connection, gs *gamelogic.GameState)
 		"war",
 		key,
 		pubsub.QueueDurable,
-		handlerWar(gs),
+		handlerWar(gs, ch),
 	); err != nil {
 		log.Fatalf("unable to subscribe: %v", err)
 	}

@@ -1,7 +1,9 @@
 package pubsub
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -59,6 +61,21 @@ func DeclareAndBind(
 	}
 
 	return ch, q, nil
+}
+
+func PublishGob[T any](ch *amqp.Channel, exchange, key string, val T) error {
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	if err := enc.Encode(val); err != nil {
+		return fmt.Errorf("could not encode gob: %v", err)
+	}
+
+	msg := amqp.Publishing{
+		ContentType: "application/gob",
+		Body:        buffer.Bytes(),
+	}
+
+	return ch.PublishWithContext(context.Background(), exchange, key, false, false, msg)
 }
 
 func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
