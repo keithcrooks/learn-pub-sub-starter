@@ -19,6 +19,18 @@ func main() {
 
 	gs := gamelogic.NewGameState(username)
 
+	subscribeToPause(username, conn, gs)
+	subscribeToArmyMoves(username, conn, gs)
+
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Fatalf("could not create channel: %v", err)
+	}
+
+	executeCommandLoop(gs, ch)
+}
+
+func subscribeToPause(username string, conn *amqp.Connection, gs *gamelogic.GameState) {
 	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, username)
 	if err := pubsub.SubscribeJSON(
 		conn,
@@ -30,11 +42,24 @@ func main() {
 	); err != nil {
 		log.Fatalf("unable to subscribe: %v", err)
 	}
-
-	executeCommandLoop(gs)
 }
 
-func executeCommandLoop(gs *gamelogic.GameState) {
+func subscribeToArmyMoves(username string, conn *amqp.Connection, gs *gamelogic.GameState) {
+	key := fmt.Sprintf("%s.*", routing.ArmyMovesPrefix)
+	queueName := fmt.Sprintf("%s.%s", routing.ArmyMovesPrefix, username)
+	if err := pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		queueName,
+		key,
+		pubsub.QueueTransient,
+		handlerArmyMoves(gs),
+	); err != nil {
+		log.Fatalf("unable to subscribe: %v", err)
+	}
+}
+
+func executeCommandLoop(gs *gamelogic.GameState, ch *amqp.Channel) {
 	for {
 		words := gamelogic.GetInput()
 
@@ -50,10 +75,21 @@ func executeCommandLoop(gs *gamelogic.GameState) {
 				continue
 			}
 		case "move":
-			_, err := gs.CommandMove(words)
+			am, err := gs.CommandMove(words)
 			if err != nil {
 				fmt.Printf("could not move: %v", err)
 				continue
+			}
+
+			routingKey := fmt.Sprintf("%s.%s", routing.ArmyMovesPrefix, am.Player.Username)
+
+			if err := pubsub.PublishJSON(
+				ch,
+				routing.ExchangePerilTopic,
+				routingKey,
+				am,
+			); err != nil {
+				log.Printf("could not send move message: %v", err)
 			}
 
 			fmt.Println("move successful")
