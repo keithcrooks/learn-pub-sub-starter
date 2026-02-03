@@ -24,11 +24,11 @@ func handlerMove(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.ArmyM
 			}
 			if err := pubsub.PublishJSON(ch, routing.ExchangePerilTopic, key, val); err != nil {
 				log.Printf("could not publish recognition of war message, %v", err)
-			} else {
-				fmt.Println("recognition of war successful")
+				return pubsub.NackRequeue
 			}
 
-			return pubsub.NackRequeue
+			fmt.Println("recognition of war successful")
+			return pubsub.Ack
 		case gamelogic.MoveOutComeSafe:
 			return pubsub.Ack
 		case gamelogic.MoveOutcomeSamePlayer:
