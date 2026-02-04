@@ -23,7 +23,7 @@ func main() {
 
 	fmt.Println("Connection was successful.")
 
-	_, _, err = pubsub.DeclareAndBind(conn, routing.ExchangePerilTopic, "game_logs", "game_logs.*", pubsub.QueueDurable)
+	err = pubsub.SubscribeGob(conn, routing.ExchangePerilTopic, "game_logs", "game_logs.*", pubsub.QueueDurable, handlerLogs())
 	if err != nil {
 		log.Fatalf("could not declare and bind: %v", err)
 	}
